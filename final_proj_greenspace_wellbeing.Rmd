@@ -1,0 +1,52 @@
+---
+title: "Final Project - Greenspace and Wellbeing"
+author: "Wylie Hampson"
+date: "11/28/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(here)
+library(janitor)
+```
+
+### Import the data
+
+```{r}
+data <- read_csv(here("data", "greenspace_data.csv")) %>% 
+  clean_names()
+```
+
+### I am interested in particular how having windows in their bedrooms affects college and graduate students. So from this data set I will filter out only the people who are 35 and younger, since that will more similarly represent students.
+
+```{r}
+under35 <- data %>% 
+  filter(age <= 35)
+```
+
+### Next, I'll make a well-being column that adds up the values for life satisfaction, self-esteem, and subjective happiness. Then, subtracts values from the depression and anxiety column, and the lonliness column. This will give one value for a persons overall well being.
+
+```{r}
+under35 <- under35 %>% 
+  mutate(well_being = (life_satisfaction + self_esteem + subjective_happiness) - (depression_and_anxiety + loneliness))
+```
+
+### Plot a histogram of the well-being values.
+
+```{r}
+ggplot(data = under35, aes(x = well_being)) +
+  geom_histogram()
+```
+
+### Make a scatter plot of well-being versus whether or not a person has a window in their room.
+
+```{r}
+under35 <- under35 %>% 
+  mutate(nature_view = as.logical(nature_view))
+
+ggplot(data = under35, aes(x = nature_view, y = well_being)) +
+  geom_violin(aes(color = nature_view))
+```
+
