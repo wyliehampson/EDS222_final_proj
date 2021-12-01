@@ -47,6 +47,65 @@ under35 <- under35 %>%
   mutate(nature_view = as.logical(nature_view))
 
 ggplot(data = under35, aes(x = nature_view, y = well_being)) +
-  geom_violin(aes(color = nature_view))
+  geom_boxplot(aes(color = nature_view))
 ```
+
+```{r}
+mu_window <- under35 %>% 
+  filter(nature_view == TRUE) %>% 
+  summarize(mean(well_being))
+
+mu_no_window <- under35 %>% 
+  filter(nature_view == FALSE) %>% 
+  summarize(mean(well_being))
+
+point_est <- as.numeric(mu_window - mu_no_window)
+```
+
+
+```{r}
+n_window = under35 %>% filter(nature_view == TRUE) %>% count()
+n_no_window = under35 %>% filter(nature_view == FALSE) %>% count()
+sd_window = under35 %>% filter(nature_view == TRUE) %>% summarize(sd(well_being, na.rm = TRUE))
+sd_no_window = under35 %>% filter(nature_view == FALSE) %>% summarize(sd(well_being, na.rm = TRUE))
+SE = as.numeric(sqrt(sd_window ^ 2 / n_window + sd_no_window ^ 2 / n_no_window))
+print(SE)
+
+```
+
+```{r}
+zscore <- point_est / SE
+
+p_val <- 2 * pnorm(point_est, mean = 0, sd = SE, lower.tail = FALSE)
+p_val
+```
+
+```{r}
+t.test(well_being ~ nature_view, data = under35)
+```
+
+### Now let's see if going outside interacts as well.
+
+```{r}
+ggplot(data = under35, aes(x = greenspace_use_frequency, y = well_being)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE)
+
+summary(lm(data = under35, well_being ~ greenspace_use_frequency))
+```
+```{r eval = FALSE}
+mod <- lm(well_being ~ greenspace_use_frequency + nature_view, data = under35)
+```
+
+```{r}
+ggplot(data = under35, aes(x = greenspace_use_frequency, y = well_being, color = nature_view)) +
+  geom_point() +
+  geom_line(data = augment(mod), aes(y = .fitted, color = nature_view))
+
+summary(mod)
+```
+
+
+
+
 
