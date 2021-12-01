@@ -22,40 +22,40 @@ data <- read_csv(here("data", "greenspace_data.csv")) %>%
 ### I am interested in particular how having windows in their bedrooms affects college and graduate students. So from this data set I will filter out only the people who are 35 and younger, since that will more similarly represent students.
 
 ```{r}
-under35 <- data %>% 
-  filter(age <= 35)
+under30 <- data %>% 
+  filter(age <= 30)
 ```
 
 ### Next, I'll make a well-being column that adds up the values for life satisfaction, self-esteem, and subjective happiness. Then, subtracts values from the depression and anxiety column, and the lonliness column. This will give one value for a persons overall well being.
 
 ```{r}
-under35 <- under35 %>% 
+under30 <- under30 %>% 
   mutate(well_being = (life_satisfaction + self_esteem + subjective_happiness) - (depression_and_anxiety + loneliness))
 ```
 
 ### Plot a histogram of the well-being values.
 
 ```{r}
-ggplot(data = under35, aes(x = well_being)) +
+ggplot(data = under30, aes(x = well_being)) +
   geom_histogram()
 ```
 
 ### Make a scatter plot of well-being versus whether or not a person has a window in their room.
 
 ```{r}
-under35 <- under35 %>% 
+under30 <- under30 %>% 
   mutate(nature_view = as.logical(nature_view))
 
-ggplot(data = under35, aes(x = nature_view, y = well_being)) +
+ggplot(data = under30, aes(x = nature_view, y = well_being)) +
   geom_boxplot(aes(color = nature_view))
 ```
 
 ```{r}
-mu_window <- under35 %>% 
+mu_window <- under30 %>% 
   filter(nature_view == TRUE) %>% 
   summarize(mean(well_being))
 
-mu_no_window <- under35 %>% 
+mu_no_window <- under30 %>% 
   filter(nature_view == FALSE) %>% 
   summarize(mean(well_being))
 
@@ -64,10 +64,10 @@ point_est <- as.numeric(mu_window - mu_no_window)
 
 
 ```{r}
-n_window = under35 %>% filter(nature_view == TRUE) %>% count()
-n_no_window = under35 %>% filter(nature_view == FALSE) %>% count()
-sd_window = under35 %>% filter(nature_view == TRUE) %>% summarize(sd(well_being, na.rm = TRUE))
-sd_no_window = under35 %>% filter(nature_view == FALSE) %>% summarize(sd(well_being, na.rm = TRUE))
+n_window = under30 %>% filter(nature_view == TRUE) %>% count()
+n_no_window = under30 %>% filter(nature_view == FALSE) %>% count()
+sd_window = under30 %>% filter(nature_view == TRUE) %>% summarize(sd(well_being, na.rm = TRUE))
+sd_no_window = under30 %>% filter(nature_view == FALSE) %>% summarize(sd(well_being, na.rm = TRUE))
 SE = as.numeric(sqrt(sd_window ^ 2 / n_window + sd_no_window ^ 2 / n_no_window))
 print(SE)
 
@@ -81,26 +81,26 @@ p_val
 ```
 
 ```{r}
-t.test(well_being ~ nature_view, data = under35)
+t.test(well_being ~ nature_view, data = under30)
 ```
 
 ### Now let's see if going outside interacts as well.
 
 ```{r}
-ggplot(data = under35, aes(x = greenspace_use_frequency, y = well_being)) +
+ggplot(data = under30, aes(x = greenspace_use_frequency, y = well_being)) +
   geom_point() +
   geom_smooth(method = "lm", formula = y ~ x, se = FALSE)
 
-summary(lm(data = under35, well_being ~ greenspace_use_frequency))
+summary(lm(data = under30, well_being ~ greenspace_use_frequency))
 ```
-```{r eval = FALSE}
-mod <- lm(well_being ~ greenspace_use_frequency + nature_view, data = under35)
+```{r}
+mod <- lm(well_being ~ greenspace_use_frequency + nature_view, data = under30)
 ```
 
 ```{r}
-ggplot(data = under35, aes(x = greenspace_use_frequency, y = well_being, color = nature_view)) +
+ggplot(data = under30, aes(x = greenspace_use_frequency, y = well_being, color = nature_view)) +
   geom_point() +
-  geom_line(data = augment(mod), aes(y = .fitted, color = nature_view))
+  geom_line(data = mod, aes(y = .fitted, color = nature_view))
 
 summary(mod)
 ```
