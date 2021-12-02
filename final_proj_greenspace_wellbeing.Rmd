@@ -10,101 +10,148 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(here)
 library(janitor)
+library(xtable)
+library(gt)
 ```
 
 ### Import the data
 
 ```{r}
-data <- read_csv(here("data", "greenspace_data.csv")) %>% 
+data_full <- read_csv(here("data", "greenspace_data.csv")) %>% 
   clean_names()
 ```
 
-### I am interested in particular how having windows in their bedrooms affects college and graduate students. So from this data set I will filter out only the people who are 35 and younger, since that will more similarly represent students.
+### I am interested in particular how having windows in their bedrooms affects college and graduate students. So from this data set I will filter out only the people who are 30 and younger, since that will more similarly represent students.
 
 ```{r}
-under30 <- data %>% 
+data <- data_full %>% 
   filter(age <= 30)
 ```
 
-### Next, I'll make a well-being column that adds up the values for life satisfaction, self-esteem, and subjective happiness. Then, subtracts values from the depression and anxiety column, and the lonliness column. This will give one value for a persons overall well being.
+### Next, I'll make a well-being column that adds up the values for life satisfaction, self-esteem, and subjective happiness. Then, subtracts values from the depression and anxiety column, and the lonliness column. This will give one value for a persons overall well being. I do this in the full data set as well so that I can compare them later.
 
 ```{r}
-under30 <- under30 %>% 
+data <- data %>% 
+  mutate(well_being = (life_satisfaction + self_esteem + subjective_happiness) - (depression_and_anxiety + loneliness))
+
+data_full <- data_full %>% 
   mutate(well_being = (life_satisfaction + self_esteem + subjective_happiness) - (depression_and_anxiety + loneliness))
 ```
 
-### Plot a histogram of the well-being values.
+### Plot a quick histogram of the well-being values. It looks like a fairly normal distribution.
 
 ```{r}
-ggplot(data = under30, aes(x = well_being)) +
-  geom_histogram()
+ggplot(data = data, aes(x = well_being)) +
+  geom_histogram(fill = "blue") +
+  labs(x = "Well-being Score",
+       y = "Count",
+       title = "Distribution of Well-being Scores for People 30 and Younger")
+  
 ```
 
-### Make a scatter plot of well-being versus whether or not a person has a window in their room.
+### Make a box plot of well-being versus whether or not a person has a window with a view of nature in their room.
 
 ```{r}
-under30 <- under30 %>% 
+data <- data %>% 
   mutate(nature_view = as.logical(nature_view))
 
-ggplot(data = under30, aes(x = nature_view, y = well_being)) +
-  geom_boxplot(aes(color = nature_view))
+ggplot(data = data, aes(x = well_being, y = nature_view)) +
+  geom_boxplot(aes(color = nature_view)) +
+  labs(x = "Well-being",
+       y = "Has a View of Nature",
+       title = "Well-being Scores",
+       subtitle = "People who have a view of nature from their window vs. people who don't") +
+  theme(legend.position = "none")
 ```
 
+### Here I'm finding the z-score, standard error, point estimate, means values, and p-value by hand.
+
 ```{r}
-mu_window <- under30 %>% 
+# Mean values for window with a view of nature vs. no view of nature.
+mu_window <- data %>% 
   filter(nature_view == TRUE) %>% 
   summarize(mean(well_being))
 
-mu_no_window <- under30 %>% 
+mu_no_window <- data %>% 
   filter(nature_view == FALSE) %>% 
   summarize(mean(well_being))
 
+# Point Estimate
 point_est <- as.numeric(mu_window - mu_no_window)
 ```
 
 
 ```{r}
-n_window = under30 %>% filter(nature_view == TRUE) %>% count()
-n_no_window = under30 %>% filter(nature_view == FALSE) %>% count()
-sd_window = under30 %>% filter(nature_view == TRUE) %>% summarize(sd(well_being, na.rm = TRUE))
-sd_no_window = under30 %>% filter(nature_view == FALSE) %>% summarize(sd(well_being, na.rm = TRUE))
+# Counts and standard deviations for each group
+n_window = data %>% filter(nature_view == TRUE) %>% count()
+n_no_window = data %>% filter(nature_view == FALSE) %>% count()
+sd_window = data %>% filter(nature_view == TRUE) %>% summarize(sd(well_being, na.rm = TRUE))
+sd_no_window = data %>% filter(nature_view == FALSE) %>% summarize(sd(well_being, na.rm = TRUE))
+
+# Do the same thing with the full dataset to compare later.
+n_window_full = data_full %>% filter(nature_view == TRUE) %>% count()
+n_no_window_full = data_full %>% filter(nature_view == FALSE) %>% count()
+sd_window_full = data_full %>% filter(nature_view == TRUE) %>% summarize(sd(well_being, na.rm = TRUE))
+sd_no_window_full = data_full %>% filter(nature_view == FALSE) %>% summarize(sd(well_being, na.rm = TRUE))
+
+# Standard Error
 SE = as.numeric(sqrt(sd_window ^ 2 / n_window + sd_no_window ^ 2 / n_no_window))
 print(SE)
 
 ```
 
 ```{r}
+# z-score
 zscore <- point_est / SE
 
+# p-value
 p_val <- 2 * pnorm(point_est, mean = 0, sd = SE, lower.tail = FALSE)
 p_val
 ```
 
+### Now I'm finding all of the same things as above, but with a t-test. I get very similar results, which is a good thing!
+
 ```{r}
-t.test(well_being ~ nature_view, data = under30)
+t.test(well_being ~ nature_view, data = data)
 ```
 
 ### Now let's see if going outside interacts as well.
 
 ```{r}
-ggplot(data = under30, aes(x = greenspace_use_frequency, y = well_being)) +
+mod <- lm(well_being ~ greenspace_use_frequency + nature_view, data = data)
+
+ggplot(data = data, aes(x = greenspace_use_frequency, y = well_being, color = nature_view)) +
   geom_point() +
-  geom_smooth(method = "lm", formula = y ~ x, se = FALSE)
-
-summary(lm(data = under30, well_being ~ greenspace_use_frequency))
-```
-```{r}
-mod <- lm(well_being ~ greenspace_use_frequency + nature_view, data = under30)
+  geom_line(data = mod, aes(y = .fitted, color = nature_view)) +
+  labs(x = "Frequency of Green Space Use (days)",
+       y = "Well-being",
+       title = "Green Space Use Effects on Well-Being")
 ```
 
+### Here is what the parallel slope model looks like when all of the data is plotted instead of just people under 30.
+
 ```{r}
-ggplot(data = under30, aes(x = greenspace_use_frequency, y = well_being, color = nature_view)) +
+mod_full <- lm(well_being ~ greenspace_use_frequency + nature_view, data = data_full)
+
+ggplot(data = data_full, aes(x = greenspace_use_frequency, y = well_being, color = as.logical(nature_view))) +
   geom_point() +
-  geom_line(data = mod, aes(y = .fitted, color = nature_view))
-
-summary(mod)
+  geom_line(data = mod_full, aes(y = .fitted, color = as.logical(nature_view))) +
+  labs(x = "Frequency of Green Space Use (days)",
+       y = "Well-being",
+       title = "Green Space Use Effects on Well-Being")
 ```
 
+### Here is a summary table with all of the coefficents for the parallel slope model for people 30 and younger, as well as the $R^2$ value.
+
+```{r}
+r_squared <- summary(mod)$r.squared
+
+summary(mod) %>% 
+  xtable() %>% 
+  knitr::kable()
+
+print(paste0("R-squared value = ", r_squared))
+```
 
 
 
